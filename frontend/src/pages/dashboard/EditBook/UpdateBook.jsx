@@ -1,10 +1,11 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import Loading from "../../../components/Loading";
 import { useFetchBookByIdQuery, useUpdateBookMutation } from "../../../redux/features/books/booksApi";
 import { useAuth } from "../../../context/AuthContext";
+import { getImgUrl } from "../../../utils/getImgUrl";
 
 const categoryOptions = [
   "action",
@@ -25,6 +26,7 @@ const UpdateBook = () => {
   const { data: bookData, isLoading, isError } = useFetchBookByIdQuery(id);
   const [updateBook, { isLoading: isUpdating }] = useUpdateBookMutation();
   const { register, handleSubmit, reset, watch } = useForm();
+  const [newCoverFile, setNewCoverFile] = useState(null);
   const selectedDocument = watch("document");
   const selectedFile = useMemo(() => selectedDocument?.[0] ?? null, [selectedDocument]);
 
@@ -40,7 +42,6 @@ const UpdateBook = () => {
         isFree: bookData.isFree,
         oldPrice: bookData.oldPrice,
         newPrice: bookData.newPrice,
-        coverImage: bookData.coverImage,
       });
     }
   }, [bookData, reset]);
@@ -55,8 +56,10 @@ const UpdateBook = () => {
         oldPrice: Number(data.oldPrice),
         newPrice: data.isFree ? 0 : Number(data.newPrice),
         document: data.document?.[0],
+        coverImage: newCoverFile,
       }).unwrap();
 
+      setNewCoverFile(null);
       Swal.fire({
         title: "Book updated",
         text: "The changes have been saved successfully.",
@@ -121,12 +124,31 @@ const UpdateBook = () => {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-semibold text-slate-700">Cover Image URL</label>
+          <label className="mb-2 block text-sm font-semibold text-slate-700">Cover Image</label>
+          {bookData?.coverImage ? (
+            <div className="mb-3 overflow-hidden rounded-xl border border-slate-200">
+              <img src={getImgUrl(bookData.coverImage)} alt="Current cover" className="h-48 w-full object-contain" />
+            </div>
+          ) : null}
           <input
-            type="text"
-            {...register("coverImage", { required: true })}
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-sky-500"
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setNewCoverFile(file);
+              }
+            }}
+            className="w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none file:mr-4 file:rounded-xl file:border-0 file:bg-sky-600 file:px-4 file:py-2 file:font-semibold file:text-white focus:border-sky-500"
           />
+          <p className="mt-2 text-xs text-slate-500">
+            Leave empty to keep the current cover image. Supported: JPEG, PNG, GIF, WebP up to 5MB.
+          </p>
+          {newCoverFile ? (
+            <p className="mt-2 text-sm font-medium text-slate-700">
+              New image: {newCoverFile.name}
+            </p>
+          ) : null}
         </div>
 
         <div className="md:col-span-2">

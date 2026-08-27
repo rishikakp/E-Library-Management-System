@@ -85,13 +85,13 @@ const BookCard = ({ book }) => {
           </p>
           <button
             onClick={() => handleBookAccess({ book, onRent: () => handleAddToCart(book) })}
-            disabled={isOwned || isUnavailable}
+            disabled={isUnavailable}
             className="inline-flex w-fit items-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FiShoppingCart />
             <span>
               {isOwned
-                ? "Your Listing"
+                ? "Read File"
                 : isUnavailable
                   ? "Unavailable"
                   : book?.isFree

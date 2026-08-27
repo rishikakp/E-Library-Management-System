@@ -68,9 +68,9 @@ function buildBookFormData(payload) {
             return;
         }
 
-        if (key === "document") {
+        if (key === "coverImage" || key === "document") {
             if (value instanceof File) {
-                formData.append("document", value);
+                formData.append(key, value);
             }
             return;
         }

@@ -12,13 +12,13 @@ async function main() {
   await cleanupLegacyUserIndexes();
   await ensureAdminUser();
   console.log("MongoDB connected and admin account verified.");
+
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+  });
 }
 
 main().catch((error) => {
   console.error("Failed to start server", error);
   process.exit(1);
-});
-
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
 });

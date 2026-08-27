@@ -1,5 +1,4 @@
 import { useState } from "react";
-import apiClient from "../../utils/apiClient";
 import {
   useGetMyOrdersQuery,
   useRenewRentalItemMutation,
@@ -11,8 +10,6 @@ import ReturnAcknowledgement from "../../components/ReturnAcknowledgement";
 import FinePaymentCard from "../../components/FinePaymentCard";
 import PayLaterBill from "../../components/PayLaterBill";
 import { useAuth } from "../../context/AuthContext";
-
-const inlineMimeTypes = new Set(["application/pdf", "text/plain"]);
 
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : "Not returned");
 
@@ -29,38 +26,8 @@ const OrderPage = () => {
   const [returnAckowledgement, setReturnAcknowledgement] = useState(null);
   const [showReturnAck, setShowReturnAck] = useState(false);
 
-  const handleOpenDocument = async (bookId, fileName, mimeType) => {
-    const requestKey = `${bookId}:${fileName}`;
-
-    try {
-      setActiveDocumentKey(requestKey);
-      const response = await apiClient.get(`/api/books/${bookId}/document`, {
-        responseType: "blob",
-      });
-
-      const blob = new Blob([response.data], {
-        type: response.headers["content-type"] || mimeType,
-      });
-      const objectUrl = window.URL.createObjectURL(blob);
-
-      if (inlineMimeTypes.has(blob.type)) {
-        window.open(objectUrl, "_blank", "noopener,noreferrer");
-        window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 60_000);
-        return;
-      }
-
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = fileName || "library-document";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(objectUrl);
-    } catch (error) {
-      window.alert(error?.response?.data?.message || "Unable to open this library file right now.");
-    } finally {
-      setActiveDocumentKey("");
-    }
+  const handleOpenDocument = (bookId) => {
+    window.open(`/api/books/${bookId}/document`, "_blank");
   };
 
   const handleRenew = async (orderId, itemId, bookTitle) => {
@@ -210,7 +177,7 @@ const OrderPage = () => {
                           type="button"
                           disabled={!item.hasDocument || item.status !== "active" || isBusy}
                           onClick={() =>
-                            handleOpenDocument(item.bookId, item.documentName, item.documentMimeType)
+                            handleOpenDocument(item.bookId)
                           }
                           className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                         >

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import Swal from "sweetalert2";
 import { useAddBookMutation } from "../../../redux/features/books/booksApi";
@@ -29,11 +29,11 @@ const AddBook = () => {
       isFree: false,
       oldPrice: 0,
       newPrice: 0,
-      coverImage: "",
       trending: false,
     },
   });
   const [addBook, { isLoading }] = useAddBookMutation();
+  const [coverPreview, setCoverPreview] = useState(null);
   const selectedDocument = watch("document");
   const selectedFile = useMemo(() => selectedDocument?.[0] ?? null, [selectedDocument]);
 
@@ -46,9 +46,11 @@ const AddBook = () => {
         oldPrice: Number(data.oldPrice),
         newPrice: data.isFree ? 0 : Number(data.newPrice),
         document: data.document?.[0],
+        coverImage: data.coverImage?.[0],
       }).unwrap();
 
       reset();
+      setCoverPreview(null);
       Swal.fire({
         title: "Book added",
         text: "Your book is now available in the catalog.",
@@ -113,13 +115,29 @@ const AddBook = () => {
         </div>
 
         <div>
-          <label className="mb-2 block text-sm font-semibold text-slate-700">Cover Image URL</label>
+          <label className="mb-2 block text-sm font-semibold text-slate-700">Cover Image</label>
           <input
-            type="text"
-            {...register("coverImage", { required: true })}
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
-            placeholder="https://..."
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            {...register("coverImage", {
+              required: true,
+              onChange: (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setCoverPreview(URL.createObjectURL(file));
+                }
+              },
+            })}
+            className="w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm outline-none file:mr-4 file:rounded-xl file:border-0 file:bg-emerald-600 file:px-4 file:py-2 file:font-semibold file:text-white focus:border-emerald-500"
           />
+          <p className="mt-2 text-xs text-slate-500">
+            Upload a cover image in JPEG, PNG, GIF, or WebP format. Max size: 5MB.
+          </p>
+          {coverPreview ? (
+            <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+              <img src={coverPreview} alt="Preview" className="h-48 w-full object-contain" />
+            </div>
+          ) : null}
         </div>
 
         <div className="md:col-span-2">

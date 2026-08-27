@@ -3,20 +3,31 @@ const path = require("path");
 const crypto = require("crypto");
 const multer = require("multer");
 
-const uploadDirectory = path.join(__dirname, "../../uploads/documents");
-const allowedMimeTypes = new Set([
+const documentDirectory = path.join(__dirname, "../../uploads/documents");
+const imageDirectory = path.join(__dirname, "../../uploads/images");
+
+const allowedDocumentMimeTypes = new Set([
   "application/pdf",
   "text/plain",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
-const allowedExtensions = new Set([".pdf", ".txt", ".doc", ".docx"]);
+const allowedDocumentExtensions = new Set([".pdf", ".txt", ".doc", ".docx"]);
 
-fs.mkdirSync(uploadDirectory, { recursive: true });
+const allowedImageMimeTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
+const allowedImageExtensions = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"]);
 
-const storage = multer.diskStorage({
+fs.mkdirSync(documentDirectory, { recursive: true });
+fs.mkdirSync(imageDirectory, { recursive: true });
+
+const documentStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, uploadDirectory);
+    cb(null, documentDirectory);
   },
   filename: (_req, file, cb) => {
     const extension = path.extname(file.originalname || "").toLowerCase();
@@ -25,10 +36,21 @@ const storage = multer.diskStorage({
   },
 });
 
-const fileFilter = (_req, file, cb) => {
+const imageStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, imageDirectory);
+  },
+  filename: (_req, file, cb) => {
+    const extension = path.extname(file.originalname || "").toLowerCase();
+    const safeName = `${Date.now()}-${crypto.randomUUID()}${extension}`;
+    cb(null, safeName);
+  },
+});
+
+const documentFileFilter = (_req, file, cb) => {
   const extension = path.extname(file.originalname || "").toLowerCase();
 
-  if (!allowedExtensions.has(extension) || !allowedMimeTypes.has(file.mimetype)) {
+  if (!allowedDocumentExtensions.has(extension) || !allowedDocumentMimeTypes.has(file.mimetype)) {
     cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "document"));
     return;
   }
@@ -36,21 +58,84 @@ const fileFilter = (_req, file, cb) => {
   cb(null, true);
 };
 
+const imageFileFilter = (_req, file, cb) => {
+  const extension = path.extname(file.originalname || "").toLowerCase();
+
+  if (!allowedImageExtensions.has(extension) || !allowedImageMimeTypes.has(file.mimetype)) {
+    cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "coverImage"));
+    return;
+  }
+
+  cb(null, true);
+};
+
 const uploadBookDocument = multer({
-  storage,
+  storage: documentStorage,
   limits: {
     fileSize: 10 * 1024 * 1024,
     files: 1,
   },
-  fileFilter,
+  fileFilter: documentFileFilter,
 });
 
-const removeUploadedDocument = async (storageName) => {
-  if (!storageName) {
-    return;
+const uploadCoverImage = multer({
+  storage: imageStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 1,
+  },
+  fileFilter: imageFileFilter,
+});
+
+const bookFilesStorage = multer.diskStorage({
+  destination: (_req, file, cb) => {
+    if (file.fieldname === "coverImage") {
+      cb(null, imageDirectory);
+    } else {
+      cb(null, documentDirectory);
+    }
+  },
+  filename: (_req, file, cb) => {
+    const extension = path.extname(file.originalname || "").toLowerCase();
+    const safeName = `${Date.now()}-${crypto.randomUUID()}${extension}`;
+    cb(null, safeName);
+  },
+});
+
+const bookFilesFilter = (_req, file, cb) => {
+  const extension = path.extname(file.originalname || "").toLowerCase();
+
+  if (file.fieldname === "coverImage") {
+    if (!allowedImageExtensions.has(extension) || !allowedImageMimeTypes.has(file.mimetype)) {
+      cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "coverImage"));
+      return;
+    }
+  } else {
+    if (!allowedDocumentExtensions.has(extension) || !allowedDocumentMimeTypes.has(file.mimetype)) {
+      cb(new multer.MulterError("LIMIT_UNEXPECTED_FILE", "document"));
+      return;
+    }
   }
 
-  const filePath = path.join(uploadDirectory, storageName);
+  cb(null, true);
+};
+
+const uploadBookFiles = multer({
+  storage: bookFilesStorage,
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 2,
+  },
+  fileFilter: bookFilesFilter,
+}).fields([
+  { name: "document", maxCount: 1 },
+  { name: "coverImage", maxCount: 1 },
+]);
+
+const removeUploadedFile = async (filePath) => {
+  if (!filePath) {
+    return;
+  }
 
   try {
     await fs.promises.unlink(filePath);
@@ -61,11 +146,33 @@ const removeUploadedDocument = async (storageName) => {
   }
 };
 
-const getDocumentFilePath = (storageName) => path.join(uploadDirectory, storageName);
+const removeUploadedDocument = async (storageName) => {
+  if (!storageName) {
+    return;
+  }
+
+  const filePath = path.join(documentDirectory, storageName);
+  await removeUploadedFile(filePath);
+};
+
+const removeUploadedImage = async (filename) => {
+  if (!filename) {
+    return;
+  }
+
+  const filePath = path.join(imageDirectory, filename);
+  await removeUploadedFile(filePath);
+};
+
+const getDocumentFilePath = (storageName) => path.join(documentDirectory, storageName);
+const getImageFilePath = (filename) => path.join(imageDirectory, filename);
 
 module.exports = {
-  allowedMimeTypes,
   getDocumentFilePath,
+  getImageFilePath,
   removeUploadedDocument,
+  removeUploadedImage,
   uploadBookDocument,
+  uploadCoverImage,
+  uploadBookFiles,
 };

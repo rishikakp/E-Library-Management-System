@@ -94,13 +94,13 @@ const SingleBook = () => {
 
         <button
           onClick={() => handleBookAccess({ book, onRent: () => handleAddToCart(book) })}
-          disabled={bookStatus === "owned" || bookStatus === "unavailable"}
+          disabled={bookStatus === "unavailable"}
           className="inline-flex w-fit items-center gap-2 rounded-2xl bg-slate-900 px-6 py-3 font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <FiShoppingCart />
           <span>
             {bookStatus === "owned"
-              ? "Your Listing"
+              ? "Read File"
               : bookStatus === "unavailable"
                 ? "No Copy Available"
                 : book.isFree

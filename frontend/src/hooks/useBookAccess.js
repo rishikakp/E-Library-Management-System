@@ -5,20 +5,7 @@ import apiClient from "../utils/apiClient";
 import booksApi from "../redux/features/books/booksApi";
 import { fetchAdminOverview, fetchAdminUsers } from "../redux/features/admin/adminSlice";
 
-const openBlobDocument = (blob, fileName) => {
-  const objectUrl = window.URL.createObjectURL(blob);
-  window.open(objectUrl, "_blank", "noopener,noreferrer");
-  window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 60_000);
-
-  if (!blob.type.includes("pdf") && !blob.type.includes("text")) {
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = fileName || "library-file";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }
-};
+const getDocumentUrl = (bookId) => `/api/books/${bookId}/document`;
 
 export const useBookAccess = () => {
   const navigate = useNavigate();
@@ -32,11 +19,12 @@ export const useBookAccess = () => {
     }
 
     if (book.sellerId === currentUser.id) {
-      window.alert("You cannot rent a book you added to the library.");
+      window.open(getDocumentUrl(book._id), "_blank");
       return;
     }
 
     if (book.isFree) {
+      window.open(getDocumentUrl(book._id), "_blank");
       try {
         await apiClient.post(`/api/orders/instant/${book._id}`);
         dispatch(booksApi.util.invalidateTags(["Books"]));
@@ -44,27 +32,10 @@ export const useBookAccess = () => {
           dispatch(fetchAdminOverview());
           dispatch(fetchAdminUsers());
         }
-        const response = await apiClient.get(`/api/books/${book._id}/document`, {
-          responseType: "blob",
-        });
-        openBlobDocument(
-          new Blob([response.data], { type: response.headers["content-type"] }),
-          book.documentName
-        );
       } catch (error) {
-        if (error?.response?.status === 409) {
-          const response = await apiClient.get(`/api/books/${book._id}/document`, {
-            responseType: "blob",
-          });
-          openBlobDocument(
-            new Blob([response.data], { type: response.headers["content-type"] }),
-            book.documentName
-          );
-          return;
+        if (error?.response?.status !== 409) {
+          console.warn("Failed to register free rental", error);
         }
-        window.alert(
-          error?.response?.data?.message || "We couldn't open that title right now."
-        );
       }
       return;
     }

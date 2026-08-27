@@ -47,12 +47,16 @@ const getSessionCookieClearOptions = () => ({
 });
 
 const cleanupLegacyUserIndexes = async () => {
-  const collection = User.collection;
-  const indexes = await collection.indexes();
-  const emailIndex = indexes.find((index) => index.name === "email_1");
+  try {
+    const collection = User.collection;
+    const indexes = await collection.indexes();
+    const emailIndex = indexes.find((index) => index.name === "email_1");
 
-  if (emailIndex) {
-    await collection.dropIndex("email_1");
+    if (emailIndex) {
+      await collection.dropIndex("email_1");
+    }
+  } catch {
+    console.log("No existing user collection to clean up indexes.");
   }
 };
 

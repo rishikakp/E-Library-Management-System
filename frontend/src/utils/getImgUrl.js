@@ -1,3 +1,5 @@
+import getBaseUrl from "./baseURL";
+
 function getImgUrl (name) {
     if (!name) {
         return "https://placehold.co/320x480?text=Book+Cover";
@@ -8,6 +10,9 @@ function getImgUrl (name) {
     }
 
     if (name.includes("/") || name.includes("\\")) {
+        if (name.startsWith("/uploads/")) {
+            return `${getBaseUrl()}${name}`;
+        }
         return name;
     }
 

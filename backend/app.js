@@ -1,3 +1,4 @@
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -22,6 +23,7 @@ const createApp = () => {
   app.use(cookieParser());
   app.use(express.json());
   app.use(mongoSanitize());
+  app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
   app.use("/api/books", bookRoutes);
   app.use("/api/orders", orderRoutes);

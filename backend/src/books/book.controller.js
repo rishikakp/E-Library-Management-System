@@ -1,7 +1,11 @@
 const path = require("path");
 const Book = require("./book.model");
 const Order = require("../orders/order.model");
-const { getDocumentFilePath, removeUploadedDocument } = require("./book.upload");
+const {
+  getDocumentFilePath,
+  removeUploadedDocument,
+  removeUploadedImage,
+} = require("./book.upload");
 
 const sanitizeBookPayload = (payload = {}) => ({
   title: payload.title?.trim(),
@@ -56,7 +60,7 @@ const validateBookPayload = (payload, file, existingBook) => {
     payload.author,
     payload.description,
     payload.category,
-    payload.coverImage,
+    payload.coverImage || existingBook?.coverImage,
   ];
 
   if (requiredFields.some((field) => !field)) {
@@ -152,12 +156,24 @@ const attachAvailability = async (books) => {
 
 const postABook = async (req, res) => {
   try {
-    const payload = sanitizeBookPayload(req.body);
+    const payload = Object.fromEntries(
+      Object.entries(sanitizeBookPayload(req.body)).filter(([_, v]) => v !== undefined)
+    );
+    const coverImageFile = req.files?.coverImage?.[0];
+    const documentFile = req.files?.document?.[0];
+
+    if (coverImageFile) {
+      payload.coverImage = `/uploads/images/${coverImageFile.filename}`;
+    }
+
     payload.trending = req.user.role === "admin" ? payload.trending : false;
-    const validationError = validateBookPayload(payload, req.file);
+    const validationError = validateBookPayload(payload, documentFile);
 
     if (validationError) {
-      await removeUploadedDocument(req.file?.filename);
+      await removeUploadedDocument(documentFile?.filename);
+      if (coverImageFile) {
+        await removeUploadedImage(coverImageFile.filename);
+      }
       return res.status(400).json({ message: validationError });
     }
 
@@ -165,7 +181,7 @@ const postABook = async (req, res) => {
       ...payload,
       sellerId: req.user._id,
       sellerUsername: req.user.username,
-      ...buildDocumentMetadata(req.file),
+      ...buildDocumentMetadata(documentFile),
     });
 
     return res
@@ -173,7 +189,8 @@ const postABook = async (req, res) => {
       .json({ message: "Book saved successfully.", book: toPublicBook(newBook) });
   } catch (error) {
     console.error("Error creating book", error);
-    await removeUploadedDocument(req.file?.filename);
+    await removeUploadedDocument(req.files?.document?.[0]?.filename);
+    await removeUploadedImage(req.files?.coverImage?.[0]?.filename);
     return res.status(500).json({ message: "Failed to create book." });
   }
 };
@@ -257,24 +274,40 @@ const updateBook = async (req, res) => {
         .json({ message: "You do not have permission to edit this book." });
     }
 
-    const payload = sanitizeBookPayload(req.body);
+    const payload = Object.fromEntries(
+      Object.entries(sanitizeBookPayload(req.body)).filter(([_, v]) => v !== undefined)
+    );
+    const coverImageFile = req.files?.coverImage?.[0];
+    const documentFile = req.files?.document?.[0];
+
+    if (coverImageFile) {
+      const oldCover = book.coverImage;
+      payload.coverImage = `/uploads/images/${coverImageFile.filename}`;
+      if (oldCover && oldCover.startsWith("/uploads/images/")) {
+        await removeUploadedImage(path.basename(oldCover));
+      }
+    }
+
     payload.trending = req.user.role === "admin" ? payload.trending : book.trending;
-    const validationError = validateBookPayload(payload, req.file, book);
+    const validationError = validateBookPayload(payload, documentFile, book);
 
     if (validationError) {
-      await removeUploadedDocument(req.file?.filename);
+      await removeUploadedDocument(documentFile?.filename);
+      if (coverImageFile) {
+        await removeUploadedImage(coverImageFile.filename);
+      }
       return res.status(400).json({ message: validationError });
     }
 
     const previousStorageName = book.documentStorageName;
     Object.assign(book, payload);
 
-    if (req.file) {
-      Object.assign(book, buildDocumentMetadata(req.file));
+    if (documentFile) {
+      Object.assign(book, buildDocumentMetadata(documentFile));
     }
 
     await book.save();
-    if (req.file && previousStorageName !== book.documentStorageName) {
+    if (documentFile && previousStorageName !== book.documentStorageName) {
       await removeUploadedDocument(previousStorageName);
     }
 
@@ -284,7 +317,8 @@ const updateBook = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating book", error);
-    await removeUploadedDocument(req.file?.filename);
+    await removeUploadedDocument(req.files?.document?.[0]?.filename);
+    await removeUploadedImage(req.files?.coverImage?.[0]?.filename);
     return res.status(500).json({ message: "Failed to update book." });
   }
 };
@@ -304,9 +338,12 @@ const deleteABook = async (req, res) => {
         .json({ message: "You do not have permission to delete this book." });
     }
 
-    const { documentStorageName } = book;
+    const { documentStorageName, coverImage } = book;
     await book.deleteOne();
     await removeUploadedDocument(documentStorageName);
+    if (coverImage && coverImage.startsWith("/uploads/images/")) {
+      await removeUploadedImage(path.basename(coverImage));
+    }
 
     return res.status(200).json({
       message: "Book deleted successfully.",

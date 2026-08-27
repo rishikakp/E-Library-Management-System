@@ -23,3 +23,41 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+*.err
+**/*.log
+**/*.err
+
+# Build files
+dist/
+**/dist/
+build/
+**/build/
+
+# Uploads / generated files
+backend/uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Vercel local files
+.vercel/
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
